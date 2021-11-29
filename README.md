@@ -30,7 +30,7 @@ python3 most_common_words.py --help
 Then, simply run the following command that gives you the 10 most common words :
 
 ```
-python3 most_common_words.py -s /your path to directory/or single .txt file/ -d /destination folder/or .xml file/ -n 10
+python3 most_common_words.py -s /your-path-to-directory/or-single-file.txt/ -d /destination-folder/or-file.xml/ -n 10
 ```
 ## Results
 
