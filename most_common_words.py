@@ -1,37 +1,32 @@
-# About: Provides most common words from a directory with *.txt files or a single file
-# Author: mike.wigger17@gmail.com
-# Version: 1.6 - 29/11/2021
+# About: Creation of XML file with the N most common words from plain text file(s)
+# Version: 1.8 - 2021/12/08
 
 import argparse
 import os
 import re
 import time
+import sys
 
-def is_xml_file(destination_path):
-	if destination_path.endswith('.xml'):
-		if os.path.isdir(destination_path.rsplit('/',1)[0]):
-			return True
+def get_text(source_path):
+	text = ''
+	try:
+		if os.path.isfile(source_path):
+			with open(source_path) as reader:
+				text = reader.read()
+		elif os.path.isdir(source_path):
+			for filename in os.listdir(source_path):
+				with open('{}/{}'.format(source_path,filename)) as reader:
+					text = "{} {}".format(text, reader.read())
 		else:
-			return False
-	else:
-		return False
-
-def get_text_single_file(source_path):
-	if(source_path.endswith('.txt')):
-		with open(source_path,'r') as reader:
-			return reader.read()
-
-def get_text_multiple_files(source_path):
-	combined_text = ""
-	for filename in os.listdir(source_path):
-		if(filename.endswith('.txt')):
-			with open('{}/{}'.format(source_path,filename)) as reader:
-				combined_text = "{} {}".format(combined_text, reader.read())
-	return combined_text
+			raise OSError('Source_path Error: Provide an existing path.')
+			sys.exit()
+		return text
+	except UnicodeDecodeError as e:
+		print('ERROR - Provide a directory with plain text files or a path to a plain text file (UTF-8).')
+		sys.exit()
 
 def get_most_common_words(text, N):
-	# Regex expression to remove punctuation from text
-	text = re.sub("[^\w\s]", "", text)
+	text = re.sub("[^\w\s]", "", text) # Regex expression to remove punctuation from text
 	common_words = {}
 	for word in text.split():
 		if word in common_words:
@@ -39,23 +34,32 @@ def get_most_common_words(text, N):
 		else:
 			common_words[word] = 1
 	return dict(sorted(common_words.items(),
-				key=lambda item:item[1],
-				reverse=True)[:N])
+					key=lambda item:item[1],
+					reverse=True)[:N])
 
 def convert_to_xml(word_dict):
 	xml = "<topwords>\n"
 	for word in word_dict:
-		xml += "<word length=\"{}\">{}</word>\n".format(str(len(word)),word)
+		xml += "\t<word length=\"{}\">{}</word>\n".format(str(len(word)),word)
 	xml += "</topwords>"
 	return xml
 
 def get_args():
-	parser = argparse.ArgumentParser()
+	description = '''
+	************************
+	Most Common Words script
+	************************
+	This script provides a simple and quick way to collect the (N) most common
+	words from a plain text file or a directory containing multiple plain text
+	files. Note that the encoding of the file(s) should be in UTF-8
+	'''
+	parser = argparse.ArgumentParser(description=description,
+									 formatter_class = argparse.RawDescriptionHelpFormatter)
 	parser.add_argument('-s','--source_path',
 						help='Provide path of a file or directory',
 						type=str,
 						metavar='')
-	parser.add_argument('-d','--destination_path',
+	parser.add_argument('-d','--destination_file_path',
 						help='Provide a destination path to save the XML file',
 						type=str,
 						metavar='')
@@ -64,37 +68,28 @@ def get_args():
 						type=int,
 						metavar='')
 	args = parser.parse_args()
-	if os.path.isdir(args.destination_path):
-		if not args.destination_path.endswith('/'):
-			args.destination_path = '{}/'.format(args.destination_path)
-		args.destination_path = '{}most_common_words.xml'.format(args.destination_path)
 	return args
+
 
 def main():
 	args = get_args()
 	# Check params provided by user
 	try:
-		if os.path.isdir(args.destination_path) or is_xml_file(args.destination_path):
-			if os.path.isdir(args.source_path):
-				text = get_text_multiple_files(args.source_path)
-				if text.isspace():
-					raise OSError('Source_path Error: The .txt files in folder are all empty.')
-			elif os.path.isfile(args.source_path):
-				if os.stat(args.source_path).st_size != 0: # Check if file is empty
-					text = get_text_single_file(args.source_path)
-				else:
-					raise OSError('Source_path Error: File .txt is empty.')
-			else:
-				raise OSError('Source_path Error: Provide existing directory or file path.')
-			most_common_words = get_most_common_words(text, args.most_common_count)
-			xml = convert_to_xml(most_common_words)
-			# Save XML file
-			with open("{}".format(args.destination_path),'w') as writer:
-				writer.write(xml)
-		else:
-			raise OSError('Destination_path Error: Provide existing directory path or .xml file path.')
+		text = get_text(args.source_path)
+		if text == '':
+			raise OSError('Source_path Error: File(s) are empty')
+			sys.exit()
+		most_common_words = get_most_common_words(text, args.most_common_count)
+		xml = convert_to_xml(most_common_words)
+		try:
+			with open("{}".format(args.destination_file_path),'r+') as writer:
+				writer.write(xml) # If destination file .XML does not exist - error
+		except OSError as e:
+			print('Destination_path Error: The path provided does not exist')
+			sys.exit()
 	except OSError as e:
 		print(e)
+		sys.exit()
 
 
 if __name__ == "__main__":
